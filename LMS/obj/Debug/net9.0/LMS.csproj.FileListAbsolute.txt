@@ -375,3 +375,4 @@ E:\CS 5530\LMSHandout\LMS\obj\Debug\net9.0\refint\LMS.dll
 E:\CS 5530\LMSHandout\LMS\obj\Debug\net9.0\LMS.pdb
 E:\CS 5530\LMSHandout\LMS\obj\Debug\net9.0\LMS.genruntimeconfig.cache
 E:\CS 5530\LMSHandout\LMS\obj\Debug\net9.0\ref\LMS.dll
+E:\CS 5530\LMSHandout\LMS\obj\Debug\net9.0\LMS.sourcelink.json

@@ -39,6 +39,7 @@ namespace LMS.Controllers
             return View();
         }
 
+
         /*******Begin code to modify********/
 
         /// <summary>
@@ -50,8 +51,26 @@ namespace LMS.Controllers
         /// false if the department already exists, true otherwise.</returns>
         public IActionResult CreateDepartment(string subject, string name)
         {
-            
-            return Json(new { success = false});
+            if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(name))
+            {
+                return Json(new { success = false });
+            }
+
+            if (db.Departments.Any(d => d.SubjectAbbr == subject))
+            {
+                return Json(new { success = false });
+            }
+
+            var dept = new Department
+            {
+                SubjectAbbr = subject,
+                DeptName = name
+            };
+
+            db.Departments.Add(dept);
+            db.SaveChanges();
+
+            return Json(new { success = true });
         }
 
 
@@ -61,12 +80,19 @@ namespace LMS.Controllers
         /// "number" - The course number (as in 5530)
         /// "name" - The course name (as in "Database Systems")
         /// </summary>
-        /// <param name="subjCode">The department subject abbreviation (as in "CS")</param>
+        /// <param name="subject">The department subject abbreviation (as in "CS")</param>
         /// <returns>The JSON result</returns>
         public IActionResult GetCourses(string subject)
         {
-            
-            return Json(null);
+            var query = from c in db.Courses
+                        where c.SubjectAbbr == subject
+                        select new
+                        {
+                            number = c.CourseNum,
+                            name = c.CourseName
+                        };
+
+            return Json(query.ToArray());
         }
 
         /// <summary>
@@ -80,9 +106,16 @@ namespace LMS.Controllers
         /// <returns>The JSON result</returns>
         public IActionResult GetProfessors(string subject)
         {
-            
-            return Json(null);
-            
+            var query = from p in db.Professors
+                        where p.WorksInDeptAbbr == subject
+                        select new
+                        {
+                            lname = p.LastName,
+                            fname = p.FirstName,
+                            uid = p.UId
+                        };
+
+            return Json(query.ToArray());
         }
 
 
@@ -97,8 +130,28 @@ namespace LMS.Controllers
         /// <returns>A JSON object containing {success = true/false}.
         /// false if the course already exists, true otherwise.</returns>
         public IActionResult CreateCourse(string subject, int number, string name)
-        {           
-            return Json(new { success = false });
+        {
+            if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(name) || number <= 0)
+            {
+                return Json(new { success = false });
+            }
+
+            if (db.Courses.Any(c => c.SubjectAbbr == subject && c.CourseNum == (uint)number))
+            {
+                return Json(new { success = false });
+            }
+
+            var course = new Course
+            {
+                SubjectAbbr = subject,
+                CourseNum = (uint)number,
+                CourseName = name
+            };
+
+            db.Courses.Add(course);
+            db.SaveChanges();
+
+            return Json(new { success = true });
         }
 
 
@@ -120,13 +173,58 @@ namespace LMS.Controllers
         /// a Class offering of the same Course in the same Semester,
         /// true otherwise.</returns>
         public IActionResult CreateClass(string subject, int number, string season, int year, DateTime start, DateTime end, string location, string instructor)
-        {            
-            return Json(new { success = false});
-        }
+        {
+            if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(season) || 
+                string.IsNullOrWhiteSpace(location) || string.IsNullOrWhiteSpace(instructor) || 
+                number <= 0 || year <= 0)
+            {
+                return Json(new { success = false });
+            }
 
+            var newStart = TimeOnly.FromDateTime(start);
+            var newEnd = TimeOnly.FromDateTime(end);
+
+            bool classExists = db.Classes.Any(c => 
+                c.CourseSubjectAbbr == subject && 
+                c.CourseNum == (uint)number && 
+                c.SemesterSeason == season && 
+                c.SemesterYear == (uint)year);
+
+            if (classExists)
+            {
+                return Json(new { success = false });
+            }
+
+            bool locationConflict = db.Classes.Any(c =>
+                c.SemesterYear == (uint)year &&
+                c.SemesterSeason == season &&
+                c.Location == location &&
+                (newStart < c.EndTime && newEnd > c.StartTime));
+
+            if (locationConflict)
+            {
+                return Json(new { success = false });
+            }
+
+            var newClass = new Class
+            {
+                SemesterYear = (uint)year,
+                SemesterSeason = season,
+                Location = location,
+                StartTime = newStart,
+                EndTime = newEnd,
+                CourseSubjectAbbr = subject,
+                CourseNum = (uint)number,
+                ProfessorUId = instructor
+            };
+
+            db.Classes.Add(newClass);
+            db.SaveChanges();
+
+            return Json(new { success = true });
+        }
 
         /*******End code to modify********/
 
     }
 }
-

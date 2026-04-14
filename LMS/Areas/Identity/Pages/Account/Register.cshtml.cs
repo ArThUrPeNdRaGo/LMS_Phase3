@@ -186,17 +186,64 @@ namespace LMS.Areas.Identity.Pages.Account
         /// Create a new user of the LMS with the specified information and add it to the database.
         /// Assigns the user a unique uID consisting of a 'u' followed by 7 digits.
         /// </summary>
-        /// <param name="firstName">The user's first name</param>
-        /// <param name="lastName">The user's last name</param>
-        /// <param name="DOB">The user's date of birth</param>
-        /// <param name="departmentAbbrev">The department abbreviation that the user belongs to (ignore for Admins) </param>
-        /// <param name="role">The user's role: one of "Administrator", "Professor", "Student"</param>
-        /// <returns>The uID of the new user</returns>
         string CreateNewUser( string firstName, string lastName, DateTime DOB, string departmentAbbrev, string role )
         {
-            return "unknown";
-        }
+            string newUid = "";
+            Random rand = new Random();
+            bool isUnique = false;
 
+            while (!isUnique)
+            {
+                newUid = "u" + rand.Next(1000000, 10000000).ToString();
+                bool inStudents = db.Students.Any(s => s.UId == newUid);
+                bool inProfs = db.Professors.Any(p => p.UId == newUid);
+                bool inAdmins = db.Administrators.Any(a => a.UId == newUid);
+
+                if (!inStudents && !inProfs && !inAdmins)
+                {
+                    isUnique = true; 
+                }
+            }
+
+            if (role == "Student")
+            {
+                var student = new Student
+                {
+                    UId = newUid,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    Dob = DateOnly.FromDateTime(DOB),
+                    MajorDeptAbbr = departmentAbbrev
+                };
+                db.Students.Add(student);
+            }
+            else if (role == "Professor")
+            {
+                var prof = new Professor
+                {
+                    UId = newUid,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    Dob = DateOnly.FromDateTime(DOB),
+                    WorksInDeptAbbr = departmentAbbrev
+                };
+                db.Professors.Add(prof);
+            }
+            else if (role == "Administrator")
+            {
+                var admin = new Administrator
+                {
+                    UId = newUid,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    Dob = DateOnly.FromDateTime(DOB)
+                };
+                db.Administrators.Add(admin);
+            }
+
+            db.SaveChanges();
+            return newUid; 
+        }
         /*******End code to modify********/
     }
 }
