@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-[assembly: InternalsVisibleTo( "LMSControllerTests" )]
+[assembly: InternalsVisibleTo("LMSControllerTests")]
 namespace LMS.Controllers
 {
     [Authorize(Roles = "Student")]
@@ -63,100 +63,245 @@ namespace LMS.Controllers
         /*******Begin code to modify********/
 
         /// <summary>
-        /// Returns a JSON array of the classes the given student is enrolled in.
-        /// Each object in the array should have the following fields:
-        /// "subject" - The subject abbreviation of the class (such as "CS")
-        /// "number" - The course number (such as 5530)
-        /// "name" - The course name
-        /// "season" - The season part of the semester
-        /// "year" - The year part of the semester
-        /// "grade" - The grade earned in the class, or "--" if one hasn't been assigned
+        /// Returns a JSON array of the classes the student is enrolled in.
+        /// Each object in the array has:
+        /// "subject", "number", "name", "season", "year", "grade"
         /// </summary>
-        /// <param name="uid">The uid of the student</param>
+        /// <param name="uid">The student's uid</param>
         /// <returns>The JSON array</returns>
         public IActionResult GetMyClasses(string uid)
-        {           
-            return Json(null);
+        {
+            var result =
+                from e in db.Enrollments
+                join c in db.Classes on e.ClassId equals c.ClassId
+                join co in db.Courses
+                    on new { A = c.CourseSubjectAbbr, B = c.CourseNum }
+                    equals new { A = co.SubjectAbbr, B = co.CourseNum }
+                where e.StudentUId == uid
+                select new
+                {
+                    subject = c.CourseSubjectAbbr,
+                    number = c.CourseNum,
+                    name = co.CourseName,
+                    season = c.SemesterSeason,
+                    year = c.SemesterYear,
+                    grade = e.Grade ?? "--"
+                };
+
+            return Json(result.ToArray());
         }
 
         /// <summary>
-        /// Returns a JSON array of all the assignments in the given class that the given student is enrolled in.
-        /// Each object in the array should have the following fields:
-        /// "aname" - The assignment name
-        /// "cname" - The category name that the assignment belongs to
-        /// "due" - The due Date/Time
-        /// "score" - The score earned by the student, or null if the student has not submitted to this assignment.
+        /// Gets a JSON array of all the assignments in a class along with the student's submission (if any) and score for each assignment.
         /// </summary>
-        /// <param name="subject">The course subject abbreviation</param>
-        /// <param name="num">The course number</param>
-        /// <param name="season">The season part of the semester for the class the assignment belongs to</param>
-        /// <param name="year">The year part of the semester for the class the assignment belongs to</param>
+        /// <param name="subject"></param>
+        /// <param name="num"></param>
+        /// <param name="season"></param>
+        /// <param name="year"></param>
         /// <param name="uid"></param>
-        /// <returns>The JSON array</returns>
+        /// <returns></returns>
         public IActionResult GetAssignmentsInClass(string subject, int num, string season, int year, string uid)
-        {            
-            return Json(null);
+        {
+            var cls = FindClass(subject, num, season, year);
+            if (cls == null)
+                return Json(Array.Empty<object>());
+
+            var query1 =
+                from cat in db.AssignmentCategories
+                join a in db.Assignments on cat.CategoryId equals a.CategoryId
+                where cat.ClassId == cls.ClassId
+                select new
+                {
+                    AssignmentId = a.AssignmentId,
+                    AssignmentName = a.Name,
+                    CategoryName = cat.Name,
+                    Due = a.DueDatetime
+                };
+
+            var result =
+                from q in query1
+                join s in db.Submissions
+                on new { A = q.AssignmentId, B = uid }
+                equals new { A = s.AssignmentId, B = s.StudentUId }
+                into joined
+                from j in joined.DefaultIfEmpty()
+                select new
+                {
+                    aname = q.AssignmentName,
+                    cname = q.CategoryName,
+                    due = q.Due,
+                    score = j == null ? null : j.Score
+                };
+
+            return Json(result.ToArray());
         }
 
-
-
         /// <summary>
-        /// Adds a submission to the given assignment for the given student
-        /// The submission should use the current time as its DateTime
-        /// You can get the current time with DateTime.Now
-        /// The score of the submission should start as 0 until a Professor grades it
-        /// If a Student submits to an assignment again, it should replace the submission contents
-        /// and the submission time (the score should remain the same).
+        /// Submits the given text as a submission for the given assignment for the given student.
         /// </summary>
-        /// <param name="subject">The course subject abbreviation</param>
-        /// <param name="num">The course number</param>
-        /// <param name="season">The season part of the semester for the class the assignment belongs to</param>
-        /// <param name="year">The year part of the semester for the class the assignment belongs to</param>
-        /// <param name="category">The name of the assignment category in the class</param>
-        /// <param name="asgname">The new assignment name</param>
-        /// <param name="uid">The student submitting the assignment</param>
-        /// <param name="contents">The text contents of the student's submission</param>
-        /// <returns>A JSON object containing {success = true/false}</returns>
-        public IActionResult SubmitAssignmentText(string subject, int num, string season, int year,
-          string category, string asgname, string uid, string contents)
-        {           
-            return Json(new { success = false });
+        /// <param name="subject"></param>
+        /// <param name="num"></param>
+        /// <param name="season"></param>
+        /// <param name="year"></param>
+        /// <param name="category"></param>
+        /// <param name="asgname"></param>
+        /// <param name="uid"></param>
+        /// <param name="contents"></param>
+        /// <returns></returns>
+        public IActionResult SubmitAssignmentText(
+            string subject,
+            int num,
+            string season,
+            int year,
+            string category,
+            string asgname,
+            string uid,
+            string contents)
+        {
+            var cls = FindClass(subject, num, season, year);
+            if (cls == null)
+                return Json(new { success = false });
+
+            var assignment =
+                (from cat in db.AssignmentCategories
+                 join a in db.Assignments on cat.CategoryId equals a.CategoryId
+                 where cat.ClassId == cls.ClassId
+                       && cat.Name == category
+                       && a.Name == asgname
+                 select a).FirstOrDefault();
+
+            if (assignment == null)
+                return Json(new { success = false });
+
+            var existing = db.Submissions.FirstOrDefault(s =>
+                s.StudentUId == uid && s.AssignmentId == assignment.AssignmentId);
+
+            if (existing == null)
+            {
+                Submission sub = new Submission
+                {
+                    StudentUId = uid,
+                    AssignmentId = assignment.AssignmentId,
+                    SubmittedAt = DateTime.Now,
+                    Score = 0,
+                    Contents = contents
+                };
+
+                db.Submissions.Add(sub);
+            }
+            else
+            {
+                existing.Contents = contents;
+                existing.SubmittedAt = DateTime.Now;
+            }
+
+            db.SaveChanges();
+            return Json(new { success = true });
         }
 
-
         /// <summary>
-        /// Enrolls a student in a class.
+        /// Enrolls the given student in the given class. Returns success = false if the class doesn't exist or the student is already enrolled.
         /// </summary>
-        /// <param name="subject">The department subject abbreviation</param>
-        /// <param name="num">The course number</param>
-        /// <param name="season">The season part of the semester</param>
-        /// <param name="year">The year part of the semester</param>
-        /// <param name="uid">The uid of the student</param>
-        /// <returns>A JSON object containing {success = {true/false}. 
-        /// false if the student is already enrolled in the class, true otherwise.</returns>
+        /// <param name="subject"></param>
+        /// <param name="num"></param>
+        /// <param name="season"></param>
+        /// <param name="year"></param>
+        /// <param name="uid"></param>
+        /// <returns></returns>
         public IActionResult Enroll(string subject, int num, string season, int year, string uid)
-        {          
-            return Json(new { success = false});
+        {
+            var cls = FindClass(subject, num, season, year);
+            if (cls == null)
+                return Json(new { success = false });
+
+            bool alreadyEnrolled = db.Enrollments.Any(e =>
+                e.StudentUId == uid && e.ClassId == cls.ClassId);
+
+            if (alreadyEnrolled)
+                return Json(new { success = false });
+
+            Enrollment enrollment = new Enrollment
+            {
+                StudentUId = uid,
+                ClassId = cls.ClassId,
+                Grade = "--"
+            };
+
+            db.Enrollments.Add(enrollment);
+            db.SaveChanges();
+
+            return Json(new { success = true });
         }
-
-
 
         /// <summary>
-        /// Calculates a student's GPA
-        /// A student's GPA is determined by the grade-point representation of the average grade in all their classes.
-        /// Assume all classes are 4 credit hours.
-        /// If a student does not have a grade in a class ("--"), that class is not counted in the average.
-        /// If a student is not enrolled in any classes, they have a GPA of 0.0.
-        /// Otherwise, the point-value of a letter grade is determined by the table on this page:
-        /// https://advising.utah.edu/academic-standards/gpa-calculator-new.php
+        /// Calculates and returns the GPA for the given student based on their enrollments.
         /// </summary>
-        /// <param name="uid">The uid of the student</param>
-        /// <returns>A JSON object containing a single field called "gpa" with the number value</returns>
+        /// <param name="uid"></param>
+        /// <returns></returns>
         public IActionResult GetGPA(string uid)
-        {            
-            return Json(null);
+        {
+            var grades = db.Enrollments
+                .Where(e => e.StudentUId == uid && e.Grade != null && e.Grade != "--")
+                .Select(e => e.Grade!)
+                .ToList();
+
+            if (grades.Count == 0)
+                return Json(new { gpa = 0.0 });
+
+            var points = grades
+                .Select(g => GradeToPoints(g))
+                .Where(p => p >= 0.0)
+                .ToList();
+
+            if (points.Count == 0)
+                return Json(new { gpa = 0.0 });
+
+            double gpa = points.Average();
+            return Json(new { gpa = gpa });
         }
-                
+
+        /// <summary>
+        /// Finds a class by subject/number/season/year.
+        /// </summary>
+        /// <param name="subject"></param>
+        /// <param name="num"></param>
+        /// <param name="season"></param>
+        /// <param name="year"></param>
+        /// <returns></returns>
+        private Class? FindClass(string subject, int num, string season, int year)
+        {
+            return db.Classes.FirstOrDefault(c =>
+                c.CourseSubjectAbbr == subject &&
+                c.CourseNum == (uint)num &&
+                c.SemesterSeason == season &&
+                c.SemesterYear == (uint)year);
+        }
+
+        /// <summary>
+        /// Converts a letter grade to GPA points.
+        /// </summary>
+        /// <param name="grade"></param>
+        /// <returns></returns>
+        private double GradeToPoints(string grade)
+        {
+            return grade switch
+            {
+                "A" => 4.0,
+                "A-" => 3.7,
+                "B+" => 3.3,
+                "B" => 3.0,
+                "B-" => 2.7,
+                "C+" => 2.3,
+                "C" => 2.0,
+                "C-" => 1.7,
+                "D+" => 1.3,
+                "D" => 1.0,
+                "D-" => 0.7,
+                "E" => 0.0,
+                _ => -1.0
+            };
+        }
+
         /*******End code to modify********/
 
     }

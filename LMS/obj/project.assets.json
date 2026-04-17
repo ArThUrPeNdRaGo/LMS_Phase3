@@ -9910,19 +9910,24 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Arthur Mo\\.nuget\\packages\\": {}
+    "C:\\Users\\strub\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "E:\\CS 5530\\LMSHandout\\LMS\\LMS.csproj",
+      "projectUniqueName": "C:\\Users\\strub\\Source\\Repos\\LMS_Phase3\\LMS\\LMS.csproj",
       "projectName": "LMS",
-      "projectPath": "E:\\CS 5530\\LMSHandout\\LMS\\LMS.csproj",
-      "packagesPath": "C:\\Users\\Arthur Mo\\.nuget\\packages\\",
-      "outputPath": "E:\\CS 5530\\LMSHandout\\LMS\\obj\\",
+      "projectPath": "C:\\Users\\strub\\Source\\Repos\\LMS_Phase3\\LMS\\LMS.csproj",
+      "packagesPath": "C:\\Users\\strub\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\strub\\Source\\Repos\\LMS_Phase3\\LMS\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\Arthur Mo\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\strub\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -10005,7 +10010,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
